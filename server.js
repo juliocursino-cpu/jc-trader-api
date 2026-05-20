@@ -53,19 +53,12 @@ app.get("/api/jogos", async (req, res) => {
 });
 
 app.get("/api/historico", async (req, res) => {
-  try {
-    const limit = Math.min(Number(req.query.limit) || 3000, 3000);
-
-    const response = await axios.get(
-      "https://api.futpythontrader.com/api/dados/betfair/download/",
-      {
-        headers: { Authorization: `Token ${TOKEN}` },
-        responseType: "text",
-        timeout: 60000,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      }
-    );
+  res.status(503).json({
+    erro: "Histórico completo temporariamente desativado no Render Free",
+    detalhe:
+      "Essa rota carrega muitos dados e estoura a memória do plano gratuito. Publicaremos primeiro as rotas leves e depois otimizaremos o histórico em cache/paginação.",
+  });
+});
 
     const dadosCompletos = parse(response.data, {
       columns: true,
