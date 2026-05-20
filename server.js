@@ -54,29 +54,36 @@ app.get("/api/jogos", async (req, res) => {
 
 app.get("/api/historico", async (req, res) => {
   try {
+    const limit = Math.min(Number(req.query.limit) || 3000, 3000);
+
     const response = await axios.get(
       "https://api.futpythontrader.com/api/dados/betfair/download/",
       {
         headers: { Authorization: `Token ${TOKEN}` },
-        params: req.query,
         responseType: "text",
         timeout: 60000,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
       }
     );
 
-    const dados = parse(response.data, {
+    const dadosCompletos = parse(response.data, {
       columns: true,
       skip_empty_lines: true,
       bom: true,
       trim: true,
     });
 
+    const dados = dadosCompletos.slice(-limit);
+
     res.json({
+      totalOriginal: dadosCompletos.length,
       total: dados.length,
+      limit,
       dados,
     });
   } catch (err) {
-    console.log(err.response?.data || err.message);
+    console.log("Erro /api/historico:", err.response?.data || err.message);
 
     res.status(500).json({
       erro: "Erro ao buscar histórico CSV",
