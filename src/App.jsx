@@ -617,7 +617,7 @@ async function loadTodayOpportunities() {
     .map(normalizeGame)
     .filter((game) => isTodayOrTomorrow(game.Date));
 
-  const historicalResponse = await fetch(`${API_BASE_URL}/historico?limit=8000`);
+  const historicalResponse = await fetch(`${API_BASE_URL}/jogos-janela/betfair`);
   if (!historicalResponse.ok) {
     throw new Error(`Erro histórico ${historicalResponse.status}: ${await historicalResponse.text()}`);
   }
@@ -857,7 +857,7 @@ function ScannerPage() {
   [...new Set(windowGames.map((g) => g.League).filter(Boolean))].sort()
 );
 
-      const historicalResponse = await fetch(`${API_BASE_URL}/historico?limit=8000`);
+      const historicalResponse = await fetch(`${API_BASE_URL}/jogos-janela/betfair`);
       if (!historicalResponse.ok) throw new Error(`Erro histórico ${historicalResponse.status}: ${await historicalResponse.text()}`);
       const historicalPayload = await historicalResponse.json();
       const twoYearsAgo = new Date();
@@ -1302,7 +1302,7 @@ function BacktestPage() {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/historico?limit=12000`);
+      const response = await fetch(`${API_BASE_URL}/jogos-janela/betfair`);
       if (!response.ok) throw new Error(`Erro histórico ${response.status}: ${await response.text()}`);
       const payload = await response.json();
 
@@ -1691,7 +1691,7 @@ function LigasPage() {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/historico?limit=12000`);
+      const response = await fetch(`${API_BASE_URL}/jogos-janela/betfair`);
       if (!response.ok) throw new Error(`Erro histórico ${response.status}: ${await response.text()}`);
       const payload = await response.json();
 
@@ -1959,7 +1959,7 @@ function TimesPage() {
     setError("");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/historico?limit=12000`);
+      const response = await fetch(`${API_BASE_URL}/jogos-janela/betfair`);
       if (!response.ok) throw new Error(`Erro histórico ${response.status}: ${await response.text()}`);
       const payload = await response.json();
 
@@ -2329,7 +2329,7 @@ function PlacarPage() {
       const windowPayload = await windowResponse.json();
       const windowGames = extractGames(windowPayload).map(normalizeGame);
 
-      const historicalResponse = await fetch(`${API_BASE_URL}/historico?limit=12000`);
+      const historicalResponse = await fetch(`${API_BASE_URL}/jogos-janela/betfair`);
       if (!historicalResponse.ok) throw new Error(`Erro histórico ${historicalResponse.status}: ${await historicalResponse.text()}`);
       const historicalPayload = await historicalResponse.json();
 
@@ -2998,7 +2998,7 @@ function EntradasPage() {
     try {
       const [windowResponse, historyResponse] = await Promise.allSettled([
         fetch(`${API_BASE_URL}/jogos-janela/betfair`),
-        fetch(`${API_BASE_URL}/historico?limit=12000`),
+        fetch(`${API_BASE_URL}/jogos-janela/betfair`),
       ]);
 
       const allGames = [];
@@ -6974,7 +6974,7 @@ function CompactPage() {
     setDiagnostico("Buscando histórico...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/historico?limit=80000`);
+      const response = await fetch(`${API_BASE_URL}/jogos-janela/betfair`);
 
       if (!response.ok) {
         throw new Error("Falha ao buscar histórico.");
