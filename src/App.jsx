@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { RefreshCcw, Search, Trophy, Database, Target, Flame, BarChart3, ShieldCheck, Settings, Wallet, Users, Activity, Bell, Zap, AlertTriangle, Cpu } from "lucide-react";
 
-const API_BASE_URL = "http://localhost:3001/api";
+const API_BASE_URL = "https://jc-trader-api.onrender.com/api";
 
 const INITIAL_FILTERS = {
   date: "",

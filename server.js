@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const TOKEN = "d128d3a3e828ca5fd800f73170dc215dfc589a1c";
+const TOKEN = process.env.FUT_TOKEN;
 
 function formatarData(date) {
   return date.toISOString().split("T")[0];
