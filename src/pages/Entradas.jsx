@@ -172,9 +172,20 @@ function LeagueLogo({ name }) {
       const logos = await carregarLogosSQL();
       const id = normalizeLogoSQL(name);
 
-      const found = logos.find(
-        (logo) => logo.tipo === "liga" && logo.id === id
-      );
+      const idSemUnderline = id.replace(/_/g, "");
+
+const found = logos.find((item) => {
+  const logoId = String(item.id || "");
+  const logoIdSemUnderline = logoId.replace(/_/g, "");
+
+  return (
+    item.tipo === tipo &&
+    (
+      logoId === id ||
+      logoIdSemUnderline === idSemUnderline
+    )
+  );
+});
 
       if (found?.imagem_base64) {
         setSrc(found.imagem_base64);

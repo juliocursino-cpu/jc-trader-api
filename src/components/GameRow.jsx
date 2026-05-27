@@ -134,11 +134,20 @@ function SQLLogo({
 
       const id = normalizeLogoSQL(name);
 
-      const found = logos.find(
-        (logo) =>
-          logo.tipo === tipo &&
-          logo.id === id
-      );
+      const idSemUnderline = id.replace(/_/g, "");
+
+const found = logos.find((item) => {
+  const logoId = String(item.id || "");
+  const logoIdSemUnderline = logoId.replace(/_/g, "");
+
+  return (
+    item.tipo === tipo &&
+    (
+      logoId === id ||
+      logoIdSemUnderline === idSemUnderline
+    )
+  );
+});
 
       if (!ativo) return;
 
