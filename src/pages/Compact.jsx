@@ -3,6 +3,44 @@ import { RefreshCcw, Database, Star } from "lucide-react";
 import { fetchFutureMatches, fetchHistoricalMatches } from "../services/api";
 import { buildCompactGames } from "../services/compactEngine";
 
+// ======================================================
+// CONFIG
+// ======================================================
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:3001/api";
+
+// ======================================================
+// LOGOS SQL + FALLBACK LOCAL
+// ======================================================
+
+let LOGOS_CACHE = null;
+
+async function carregarLogosSQL() {
+  if (LOGOS_CACHE) return LOGOS_CACHE;
+
+  try {
+    const response = await fetch(`${API_BASE}/logos`);
+    const data = await response.json();
+
+    LOGOS_CACHE = data.ok ? data.logos || [] : [];
+    return LOGOS_CACHE;
+  } catch {
+    LOGOS_CACHE = [];
+    return [];
+  }
+}
+
+function normalizeLogoSQL(value) {
+  return String(value || "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
+}
+
 function logo(key) {
   return `/logos/${String(key || "").toLowerCase()}.png`;
 }
@@ -10,6 +48,72 @@ function logo(key) {
 function leagueLogo(key) {
   return `/logos/leagues/${String(key || "").toLowerCase()}.png`;
 }
+
+function SQLLogo({ name, logoKey, tipo = "time", fallbackColor = "00d2ff" }) {
+  const [src, setSrc] = useState(
+    tipo === "liga"
+      ? leagueLogo(logoKey)
+      : logo(logoKey)
+  );
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function buscarLogo() {
+      const logos = await carregarLogosSQL();
+      const id = normalizeLogoSQL(name);
+
+      const found = logos.find(
+        (item) =>
+          item.tipo === tipo &&
+          item.id === id
+      );
+
+      if (!ativo) return;
+
+      if (found?.imagem_base64) {
+        setSrc(found.imagem_base64);
+      } else {
+        setSrc(
+          tipo === "liga"
+            ? leagueLogo(logoKey)
+            : logo(logoKey)
+        );
+      }
+    }
+
+    buscarLogo();
+
+    return () => {
+      ativo = false;
+    };
+  }, [name, logoKey, tipo]);
+
+  return (
+    <img
+      src={src}
+      alt={name}
+      onError={(e) => {
+        if (tipo === "liga") {
+          e.currentTarget.style.display = "none";
+          return;
+        }
+
+        e.currentTarget.src =
+          `https://placehold.co/22x22/111111/${fallbackColor}?text=${String(name || "?").charAt(0)}`;
+      }}
+      className={
+        tipo === "liga"
+          ? "h-5 w-5 object-contain"
+          : "h-7 w-7 object-contain"
+      }
+    />
+  );
+}
+
+// ======================================================
+// HELPERS
+// ======================================================
 
 function pct(value) {
   return `${Math.round(Number(value || 0))}%`;
@@ -276,10 +380,10 @@ export default function Compact() {
 
                 <td className="w-[180px] whitespace-nowrap px-2 py-3 text-zinc-300">
                   <div className="flex items-center gap-2">
-                    <img
-                      src={leagueLogo(game.LeagueKey)}
-                      onError={(e) => (e.currentTarget.style.display = "none")}
-                      className="h-5 w-5 object-contain"
+                    <SQLLogo
+                      name={game.League}
+                      logoKey={game.LeagueKey}
+                      tipo="liga"
                     />
                     {game.League}
                   </div>
@@ -291,9 +395,19 @@ export default function Compact() {
 
                 <td className="w-[90px] px-2 py-3">
                   <div className="flex items-center justify-center gap-2">
-                    <img src={logo(game.HomeKey)} className="h-7 w-7 object-contain" />
+                    <SQLLogo
+                      name={game.Home}
+                      logoKey={game.HomeKey}
+                      tipo="time"
+                      fallbackColor="00d2ff"
+                    />
                     <span className="text-zinc-500">x</span>
-                    <img src={logo(game.AwayKey)} className="h-7 w-7 object-contain" />
+                    <SQLLogo
+                      name={game.Away}
+                      logoKey={game.AwayKey}
+                      tipo="time"
+                      fallbackColor="ff4d4d"
+                    />
                   </div>
                 </td>
 

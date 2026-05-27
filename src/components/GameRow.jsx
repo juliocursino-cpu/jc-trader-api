@@ -1,4 +1,39 @@
+import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:3001/api";
+
+// ======================================================
+// CACHE GLOBAL DOS LOGOS SQL
+// ======================================================
+
+let LOGOS_CACHE = null;
+
+async function carregarLogosSQL() {
+  if (LOGOS_CACHE) return LOGOS_CACHE;
+
+  try {
+    const response = await fetch(`${API_BASE}/logos`);
+    const data = await response.json();
+
+    LOGOS_CACHE = data.ok ? data.logos || [] : [];
+    return LOGOS_CACHE;
+  } catch {
+    LOGOS_CACHE = [];
+    return [];
+  }
+}
+
+function normalizeLogoSQL(value) {
+  return String(value || "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
+}
 
 function fmt(value) {
   const n = Number(value);
@@ -15,7 +50,9 @@ function OddCell({ value, color = "text-cyan-300" }) {
 
 function logoFallback(key, folder, fallback) {
   const lower = String(key || "").toLowerCase();
-  const firstUpper = String(key || "").charAt(0) + String(key || "").slice(1).toLowerCase();
+  const firstUpper =
+    String(key || "").charAt(0) +
+    String(key || "").slice(1).toLowerCase();
 
   return [
     `/${folder}/${firstUpper}.png`,
@@ -25,6 +62,143 @@ function logoFallback(key, folder, fallback) {
     `/${folder}/${firstUpper}.bmp`,
     fallback,
   ];
+}
+
+function LocalTeamLogo({ name, logoKey, fallbackColor = "00d2ff" }) {
+  const fallbackText = String(name || "?").charAt(0);
+
+  return (
+    <img
+      src={`/logos/${String(logoKey || "").toLowerCase()}.png`}
+      alt={name}
+      onError={(e) => {
+        const attempts = logoFallback(
+          logoKey,
+          "logos",
+          `https://placehold.co/22x22/111111/${fallbackColor}?text=${fallbackText}`
+        );
+
+        const current = Number(e.currentTarget.dataset.try || 0);
+
+        if (current < attempts.length) {
+          e.currentTarget.dataset.try = String(current + 1);
+          e.currentTarget.src = attempts[current];
+        }
+      }}
+      className="h-7 w-7 object-contain"
+    />
+  );
+}
+
+function LocalLeagueLogo({ name, logoKey }) {
+  return (
+    <img
+      src={`/logos/leagues/${String(logoKey || "").toLowerCase()}.png`}
+      alt={name}
+      onError={(e) => {
+        const attempts = logoFallback(
+          logoKey,
+          "logos/leagues",
+          ""
+        );
+
+        const current = Number(e.currentTarget.dataset.try || 0);
+
+        if (current < attempts.length && attempts[current]) {
+          e.currentTarget.dataset.try = String(current + 1);
+          e.currentTarget.src = attempts[current];
+          return;
+        }
+
+        e.currentTarget.style.display = "none";
+      }}
+      className="h-5 w-5 object-contain"
+    />
+  );
+}
+
+function SQLLogo({
+  name,
+  logoKey,
+  tipo = "time",
+  fallbackColor = "00d2ff",
+}) {
+  const [sqlSrc, setSqlSrc] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function buscarLogo() {
+      const logos = await carregarLogosSQL();
+
+      const id = normalizeLogoSQL(name);
+
+      const found = logos.find(
+        (logo) =>
+          logo.tipo === tipo &&
+          logo.id === id
+      );
+
+      if (!ativo) return;
+
+      if (found?.imagem_base64) {
+        setSqlSrc(found.imagem_base64);
+      } else {
+        setSqlSrc(null);
+      }
+
+      setLoaded(true);
+    }
+
+    buscarLogo();
+
+    return () => {
+      ativo = false;
+    };
+  }, [name, tipo]);
+
+  if (!loaded) {
+    return tipo === "liga" ? (
+      <LocalLeagueLogo
+        name={name}
+        logoKey={logoKey}
+      />
+    ) : (
+      <LocalTeamLogo
+        name={name}
+        logoKey={logoKey}
+        fallbackColor={fallbackColor}
+      />
+    );
+  }
+
+  if (sqlSrc) {
+    return (
+      <img
+        src={sqlSrc}
+        alt={name}
+        className={
+          tipo === "liga"
+            ? "h-5 w-5 object-contain"
+            : "h-7 w-7 object-contain"
+        }
+      />
+    );
+  }
+
+  return tipo === "liga" ? (
+    <LocalLeagueLogo
+      name={name}
+      logoKey={logoKey}
+    />
+  ) : (
+    <LocalTeamLogo
+      name={name}
+      logoKey={logoKey}
+      fallbackColor={fallbackColor}
+    />
+  );
 }
 
 export default function GameRow({ game, toggleFavorite }) {
@@ -47,90 +221,52 @@ export default function GameRow({ game, toggleFavorite }) {
         {game.Date}
       </td>
 
-      <td className="px-2 py-3 font-bold">{game.Time}</td>
+      <td className="px-2 py-3 font-bold">
+        {game.Time}
+      </td>
 
       <td className="w-[120px] whitespace-nowrap px-2 py-3 text-zinc-300">
         <div className="flex items-center gap-2">
-          <img
-            src={`/logos/leagues/${String(game.LeagueKey || "").toLowerCase()}.png`}
-            alt={game.League}
-            onError={(e) => {
-              const attempts = logoFallback(
-                game.LeagueKey,
-                "logos/leagues",
-                ""
-              );
-
-              const current = Number(e.currentTarget.dataset.try || 0);
-
-              if (current < attempts.length && attempts[current]) {
-                e.currentTarget.dataset.try = String(current + 1);
-                e.currentTarget.src = attempts[current];
-                return;
-              }
-
-              e.currentTarget.style.display = "none";
-            }}
-            className="h-5 w-5 object-contain"
+          <SQLLogo
+            name={game.League}
+            logoKey={game.LeagueKey}
+            tipo="liga"
           />
+
           <span>{game.League}</span>
         </div>
       </td>
 
       <td className="w-[160px] px-3 py-3 text-right">
-        <div className="truncate font-black text-white">{game.Home}</div>
+        <div className="truncate font-black text-white">
+          {game.Home}
+        </div>
       </td>
 
       <td className="w-[80px] px-2 py-3">
         <div className="flex items-center justify-center gap-2">
-          <img
-            src={`/logos/${String(game.HomeKey || "").toLowerCase()}.png`}
-            alt={game.Home}
-            onError={(e) => {
-              const attempts = logoFallback(
-                game.HomeKey,
-                "logos",
-                `https://placehold.co/22x22/111111/00d2ff?text=${game.Home?.charAt(0) || "H"}`
-              );
-
-              const current = Number(e.currentTarget.dataset.try || 0);
-
-              if (current < attempts.length) {
-                e.currentTarget.dataset.try = String(current + 1);
-                e.currentTarget.src = attempts[current];
-                return;
-              }
-            }}
-            className="h-7 w-7 object-contain"
+          <SQLLogo
+            name={game.Home}
+            logoKey={game.HomeKey}
+            tipo="time"
+            fallbackColor="00d2ff"
           />
 
           <span className="text-zinc-500">x</span>
 
-          <img
-            src={`/logos/${String(game.AwayKey || "").toLowerCase()}.png`}
-            alt={game.Away}
-            onError={(e) => {
-              const attempts = logoFallback(
-                game.AwayKey,
-                "logos",
-                `https://placehold.co/22x22/111111/ff4d4d?text=${game.Away?.charAt(0) || "A"}`
-              );
-
-              const current = Number(e.currentTarget.dataset.try || 0);
-
-              if (current < attempts.length) {
-                e.currentTarget.dataset.try = String(current + 1);
-                e.currentTarget.src = attempts[current];
-                return;
-              }
-            }}
-            className="h-7 w-7 object-contain"
+          <SQLLogo
+            name={game.Away}
+            logoKey={game.AwayKey}
+            tipo="time"
+            fallbackColor="ff4d4d"
           />
         </div>
       </td>
 
       <td className="w-[160px] px-3 py-3 text-left">
-        <div className="truncate font-black text-white">{game.Away}</div>
+        <div className="truncate font-black text-white">
+          {game.Away}
+        </div>
       </td>
 
       <OddCell value={game.Odd_H_Back} color="text-cyan-300" />

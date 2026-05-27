@@ -95,22 +95,67 @@ function logoFallback(key, folder, fallback) {
 function TeamLogo({ name }) {
   const key = normalizeKey(name);
 
-  return (
-    <img
-      src={logoPath(key)}
-      alt={name}
-      onError={(e) => {
-        const attempts = logoFallback(
-          key,
-          "logos",
-          `https://placehold.co/22x22/111111/00d2ff?text=${String(name || "T").charAt(0)}`
+  const [src, setSrc] = useState(
+    logoPath(key)
+  );
+
+  useEffect(() => {
+
+    async function buscarLogo() {
+
+      const logos =
+        await carregarLogosSQL();
+
+      const id =
+        normalizeLogoSQL(name);
+
+      const found =
+        logos.find(
+          (logo) =>
+            logo.tipo === "time" &&
+            logo.id === id
         );
 
-        const current = Number(e.currentTarget.dataset.try || 0);
+      if (found?.imagem_base64) {
+
+        setSrc(found.imagem_base64);
+
+      } else {
+
+        setSrc(logoPath(key));
+
+      }
+    }
+
+    buscarLogo();
+
+  }, [name, key]);
+
+  return (
+    <img
+      src={src}
+      alt={name}
+      onError={(e) => {
+
+        const attempts =
+          logoFallback(
+            key,
+            "logos",
+            `https://placehold.co/22x22/111111/00d2ff?text=${String(name || "T").charAt(0)}`
+          );
+
+        const current =
+          Number(
+            e.currentTarget.dataset.try || 0
+          );
 
         if (current < attempts.length) {
-          e.currentTarget.dataset.try = String(current + 1);
-          e.currentTarget.src = attempts[current];
+
+          e.currentTarget.dataset.try =
+            String(current + 1);
+
+          e.currentTarget.src =
+            attempts[current];
         }
       }}
       className="h-7 w-7 object-contain"

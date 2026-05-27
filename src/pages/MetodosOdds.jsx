@@ -24,8 +24,8 @@ const METODOS_FIXOS = [
   "0x1",
   "1x0",
   "P.A",
-  "Gol. Casa",
-  "Gol. Fora",
+  "G. Casa",
+  "G. Fora",
   "Over",
   "Under",
 ];
