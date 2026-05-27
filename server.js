@@ -15,7 +15,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "15mb" }));
 
 const TOKEN = process.env.FUT_TOKEN || "";
 const PORT = process.env.PORT || 3001;
@@ -1041,6 +1041,338 @@ app.get("/api/admin/create-tables", async (req, res) => {
     });
   }
 });
+
+app.get("/api/matches-futuros", async (req, res) => {
+  try {
+    const dias = Number(req.query.dias || 2);
+
+    const sql = `
+      SELECT *
+      FROM matches
+      WHERE data::date >= CURRENT_DATE
+        AND data::date <= CURRENT_DATE + ($1 || ' days')::interval
+      ORDER BY data ASC, hora ASC
+      LIMIT 1000
+    `;
+
+    const result = await pool.query(sql, [dias]);
+
+    res.json({
+      ok: true,
+      total: result.rows.length,
+      matches: result.rows,
+    });
+  } catch (error) {
+    console.error("Erro /api/matches-futuros:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Erro ao buscar jogos futuros",
+      details: error.message,
+    });
+  }
+});
+
+app.get("/api/matches-historico", async (req, res) => {
+  try {
+    const sql = `
+      SELECT *
+      FROM matches
+      WHERE data::date < CURRENT_DATE
+        AND status = 'finished'
+      ORDER BY data DESC
+      LIMIT 80000
+    `;
+
+    const result = await pool.query(sql);
+
+    res.json({
+      ok: true,
+      total: result.rows.length,
+      matches: result.rows,
+    });
+  } catch (error) {
+    console.error("Erro /api/matches-historico:", error);
+    res.status(500).json({
+      ok: false,
+      error: "Erro ao buscar histórico",
+      details: error.message,
+    });
+  }
+});
+
+// ======================================================
+// ENTRADAS - SALVAR NO POSTGRESQL/NEON
+// ======================================================
+
+async function ensureEntradasTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS entradas (
+      id TEXT PRIMARY KEY,
+      data TEXT,
+      liga TEXT,
+      casa TEXT,
+      visitante TEXT,
+      modo TEXT,
+      metodo TEXT,
+      mercado TEXT,
+      odd NUMERIC,
+      stake NUMERIC,
+      lucro NUMERIC,
+      resultado TEXT,
+      observacao TEXT,
+      sync_status TEXT DEFAULT 'sql',
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+}
+
+app.get("/api/entradas", async (req, res) => {
+  try {
+    await ensureEntradasTable();
+
+    const result = await pool.query(`
+      SELECT *
+      FROM entradas
+      ORDER BY data DESC NULLS LAST, created_at DESC
+    `);
+
+    res.json({
+      ok: true,
+      total: result.rows.length,
+      entradas: result.rows,
+    });
+  } catch (error) {
+    console.error("Erro GET /api/entradas:", error);
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+app.post("/api/entradas", async (req, res) => {
+  try {
+    await ensureEntradasTable();
+
+    const item = req.body || {};
+
+    const id =
+      item.id ||
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const result = await pool.query(
+      `
+      INSERT INTO entradas (
+        id, data, liga, casa, visitante, modo, metodo,
+        mercado, odd, stake, lucro, resultado, observacao,
+        sync_status, created_at, updated_at
+      )
+      VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
+        'sql', COALESCE($14, NOW()), NOW()
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        data = EXCLUDED.data,
+        liga = EXCLUDED.liga,
+        casa = EXCLUDED.casa,
+        visitante = EXCLUDED.visitante,
+        modo = EXCLUDED.modo,
+        metodo = EXCLUDED.metodo,
+        mercado = EXCLUDED.mercado,
+        odd = EXCLUDED.odd,
+        stake = EXCLUDED.stake,
+        lucro = EXCLUDED.lucro,
+        resultado = EXCLUDED.resultado,
+        observacao = EXCLUDED.observacao,
+        sync_status = 'sql',
+        updated_at = NOW()
+      RETURNING *;
+      `,
+      [
+        String(id),
+        item.data || "",
+        item.liga || "",
+        item.casa || "",
+        item.visitante || item.fora || "",
+        item.modo || "",
+        item.metodo || "",
+        item.mercado || "",
+        item.odd || 0,
+        item.stake || 0,
+        item.lucro || 0,
+        item.resultado || "",
+        item.observacao || "",
+        item.created_at || null,
+      ]
+    );
+
+    res.json({
+      ok: true,
+      entrada: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Erro POST /api/entradas:", error);
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+app.delete("/api/entradas/:id", async (req, res) => {
+  try {
+    await ensureEntradasTable();
+
+    await pool.query(
+      `DELETE FROM entradas WHERE id = $1`,
+      [req.params.id]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Erro DELETE /api/entradas:", error);
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+
+// ======================================================
+// LOGOS - SQL / NEON
+// ======================================================
+
+async function ensureLogosTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS logos (
+      id TEXT PRIMARY KEY,
+      nome TEXT NOT NULL,
+      tipo TEXT DEFAULT 'time',
+      imagem_base64 TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+}
+
+function normalizeLogoId(value = "") {
+  return String(value)
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
+}
+
+app.get("/api/logos", async (req, res) => {
+  try {
+    await ensureLogosTable();
+
+    const result = await pool.query(`
+      SELECT *
+      FROM logos
+      ORDER BY tipo ASC, nome ASC
+    `);
+
+    res.json({
+      ok: true,
+      total: result.rows.length,
+      logos: result.rows,
+    });
+  } catch (error) {
+    console.error("Erro GET /api/logos:", error);
+
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+app.post("/api/logos", async (req, res) => {
+  try {
+    await ensureLogosTable();
+
+    const {
+      nome,
+      tipo,
+      imagem_base64,
+    } = req.body || {};
+
+    if (!nome || !imagem_base64) {
+      return res.status(400).json({
+        ok: false,
+        error: "Nome e imagem são obrigatórios.",
+      });
+    }
+
+    const id = normalizeLogoId(nome);
+
+    const result = await pool.query(
+      `
+      INSERT INTO logos (
+        id,
+        nome,
+        tipo,
+        imagem_base64,
+        updated_at
+      )
+      VALUES (
+        $1,$2,$3,$4,NOW()
+      )
+      ON CONFLICT (id)
+      DO UPDATE SET
+        nome = EXCLUDED.nome,
+        tipo = EXCLUDED.tipo,
+        imagem_base64 = EXCLUDED.imagem_base64,
+        updated_at = NOW()
+      RETURNING *;
+      `,
+      [
+        id,
+        nome,
+        tipo || "time",
+        imagem_base64,
+      ]
+    );
+
+    res.json({
+      ok: true,
+      logo: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Erro POST /api/logos:", error);
+
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+app.delete("/api/logos/:id", async (req, res) => {
+  try {
+    await ensureLogosTable();
+
+    await pool.query(
+      `DELETE FROM logos WHERE id = $1`,
+      [req.params.id]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Erro DELETE /api/logos:", error);
+
+    res.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
+
+
 
 app.listen(PORT, () => {
   console.log("INICIANDO BACKEND API...");
