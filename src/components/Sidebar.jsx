@@ -33,7 +33,7 @@ export default function Sidebar({
   setActiveTab,
 }) {
   return (
-    <aside className="w-64 min-h-screen border-r border-zinc-800 bg-black p-4">
+    <aside className="w-64 shrink-0 min-h-screen border-r border-zinc-800 bg-black p-4">
       {/* LOGO */}
 
       <div className="mb-6 rounded-2xl border border-zinc-800 bg-[#0b0b0b] p-4">

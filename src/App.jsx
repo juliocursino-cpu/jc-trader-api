@@ -59,13 +59,13 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#050505] text-white">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-[#050505] text-white">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
 
-      <main className="flex-1 p-4">
+      <main className="min-w-0 flex-1 overflow-x-hidden p-4">
         {renderPage()}
       </main>
     </div>

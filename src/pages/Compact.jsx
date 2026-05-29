@@ -9,7 +9,7 @@ import { buildCompactGames } from "../services/compactEngine";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:3001/api";
+  "https://jc-trader-api.onrender.com/api";
 
 // ======================================================
 // LOGOS SQL + FALLBACK LOCAL
@@ -342,7 +342,7 @@ export default function Compact() {
       </div>
 
       <div className="max-h-[680px] overflow-auto rounded-2xl border border-zinc-800 bg-[#0b0b0b] p-4">
-        <table className="w-max min-w-[1650px] table-auto text-sm">
+  <table className="w-full min-w-[1000px] table-auto text-sm">
           <thead className="sticky top-0 z-20 bg-[#0b0b0b] text-zinc-500">
             <tr className="border-b border-zinc-800">
               <th className="px-2 py-3"></th>

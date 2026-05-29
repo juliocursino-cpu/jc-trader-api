@@ -7,7 +7,7 @@ import { normalizeGame, normalizeKey } from "../services/normalize";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:3001/api";
+  "https://jc-trader-api.onrender.com/api";
 
 function logoPath(key) {
   return `/logos/${String(key || "").toLowerCase()}.png`;
